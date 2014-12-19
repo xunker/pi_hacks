@@ -5,33 +5,33 @@ require 'pi_piper'
 include PiPiper
 
 @left_go_pin = PiPiper::Pin.new(pin: 17, direction: :out)
+@left_go_pin.off
 @left_direction_pin = PiPiper::Pin.new(pin: 4, direction: :out)
+@left_direction_pin.off
 @right_go_pin = PiPiper::Pin.new(pin: 10, direction: :out)
+@right_go_pin.off
 @right_direction_pin = PiPiper::Pin.new(pin: 25, direction: :out)
+@right_direction_pin.off
+
+@trigger_pin = PiPiper::Pin.new(pin: 14, direction: :out)
+@trigger_pin.off
+@echo_pin = PiPiper::Pin.new(pin: 15, direction: :in)
 
 led1 = PiPiper::Pin.new(pin: 7, direction: :out)
+led1.off
 led2 = PiPiper::Pin.new(pin: 8, direction: :out)
+led2.off
 
 sw1 = PiPiper::Pin.new(pin: 11, direction: :in, pull: :down)
 oc1 = PiPiper::Pin.new(pin: 22, direction: :out)
-
-@left_go_pin.off
-@right_go_pin.off
-
-@left_direction_pin.off
-@right_direction_pin.off
-
-led1.off
-led2.off
 oc1.off
-
 
 def show_help
   puts <<EOS
-w    forward
-s    reverse
-a    rotate left
-d    rotate right
+w/W    forward
+s/S    reverse
+a/A    rotate left
+d/D   rotate right
 x    exit
 h/?  this text
 EOS
@@ -83,6 +83,11 @@ def set_reverse
   @right_direction_pin.on
 end
 
+def forward_forever
+  set_forward
+  go
+end
+
 def forward(duration=0.5)
   puts 'forward'
   stop
@@ -127,32 +132,94 @@ def rotate_right(duration=0.5)
   stop
 end
 
+def measure
+  # This method measures a distance
+  @trigger_pin.on
+  sleep(0.00001)
+  @trigger_pin.off
+  
+  watchdog1 = 0
+  watchdog2 = 0
+  broken = false
+  while @echo_pin.read == 0 do
+    if (watchdog1 += 1) > 1000
+      broken = true
+      break 
+    end
+  end
+  start = Time.now
+  return 0.0 if broken
+
+  while @echo_pin.read == 1 do
+    if (watchdog2 += 1) > 1000
+      broken = true
+      break 
+    end
+  end
+  stop = Time.now
+  return 0.0 if broken
+
+  elapsed = stop - start
+
+  distance = (elapsed * 34300)/2
+  return distance
+end
+
+def measure_average
+  # This method takes 3 measurements and
+  # returns the average.
+  distance1 = measure
+  sleep(0.1)
+  distance2 = measure
+  sleep(0.1)
+  distance3 = measure
+  distance = distance1 + distance2 + distance3
+  distance = distance / 3
+  return distance
+end
+
 loop do
-  print 'command> '
-  cmd = STDIN.getch.strip
-  case cmd
-  when '?', 'h'
-    show_help
-  when 'x'
-    break
-  when 'w'
-    forward(1)
-  when 'W'
-    forward(2)
-  when 's'
-    reverse(0.5)
-  when 'S'
-    reverse(1)
-  when 'a'
-    rotate_left(0.25)
-  when 'A'
-    rotate_left(1)
-  when 'd'
-    rotate_right(0.25)
-  when 'D'
-    rotate_right(1)
+  if sw1.read == 0
+    distance = measure_average
+    puts "Distance : #{sprintf("%.1f", distance)}"
+    if distance > 30.0
+      puts "\tpath is clear"
+      forward_forever
+    else
+      puts "\tobstacle in path"
+      stop
+      sleep(0.5)
+      reverse(0.25)
+      rotate_left(0.25)
+    end
   else
-    puts "unknown command '#{cmd}'"
+    stop
+    print 'command> '
+    cmd = STDIN.getch.strip
+    case cmd
+    when '?', 'h'
+      show_help
+    when 'x'
+      break
+    when 'w'
+      forward(1)
+    when 'W'
+      forward(2)
+    when 's'
+      reverse(0.5)
+    when 'S'
+      reverse(1)
+    when 'a'
+      rotate_left(0.25)
+    when 'A'
+      rotate_left(1)
+    when 'd'
+      rotate_right(0.25)
+    when 'D'
+      rotate_right(1)
+    else
+      puts "unknown command '#{cmd}'"
+    end
   end
 end
 
