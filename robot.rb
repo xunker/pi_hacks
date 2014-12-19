@@ -23,6 +23,7 @@ led2 = PiPiper::Pin.new(pin: 8, direction: :out)
 led2.off
 
 sw1 = PiPiper::Pin.new(pin: 11, direction: :in, pull: :down)
+sw2 = PiPiper::Pin.new(pin: 9, direction: :in, pull: :down)
 oc1 = PiPiper::Pin.new(pin: 22, direction: :out)
 oc1.off
 
@@ -182,14 +183,26 @@ loop do
   if sw1.read == 0
     distance = measure_average
     puts "Distance : #{sprintf("%.1f", distance)}"
-    if distance > 30.0
-      puts "\tpath is clear"
+    clear = true
+    if distance < 30.0
+      puts "\tobstacle in path"
+      clear = false
+    end
+    if sw2.read == 1
+      puts "\ttoo dark"
+      clear = false
+    end
+
+    if clear
+      puts "\tmoving forward"
       forward_forever
     else
-      puts "\tobstacle in path"
+      puts "\treversing"
       stop
       sleep(0.5)
       reverse(0.25)
+      stop
+      sleep(0.5)
       rotate_left(0.25)
     end
   else
