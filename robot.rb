@@ -75,13 +75,13 @@ def set_rotate_right
 end
 
 def set_forward
-  @left_direction_pin.on
-  @right_direction_pin.off
+  @left_direction_pin.off
+  @right_direction_pin.on
 end
 
 def set_reverse
-  @left_direction_pin.off
-  @right_direction_pin.on
+  @left_direction_pin.on
+  @right_direction_pin.off
 end
 
 def forward_forever
@@ -179,31 +179,25 @@ def measure_average
   return distance
 end
 
+auto_mode = false
+
 loop do
-  if sw1.read == 0
+  if auto_mode
     distance = measure_average
     puts "Distance : #{sprintf("%.1f", distance)}"
-    clear = true
-    if distance < 30.0
+    if distance < 100.0
       puts "\tobstacle in path"
-      clear = false
-    end
-    if sw2.read == 1
-      puts "\ttoo dark"
-      clear = false
-    end
-
-    if clear
-      puts "\tmoving forward"
-      forward_forever
-    else
       puts "\treversing"
       stop
       sleep(0.5)
-      reverse(0.25)
+      reverse(0.2)
       stop
       sleep(0.5)
-      rotate_left(0.25)
+      rotate_left(0.1)
+      next
+    else
+      puts "\tmoving forward"
+      forward_forever
     end
   else
     stop
@@ -215,21 +209,23 @@ loop do
     when 'x'
       break
     when 'w'
-      forward(1)
+      forward(0.5)
     when 'W'
-      forward(2)
+      forward(1)
     when 's'
       reverse(0.5)
     when 'S'
       reverse(1)
     when 'a'
-      rotate_left(0.25)
+      rotate_left(0.1)
     when 'A'
-      rotate_left(1)
+      rotate_left(0.25)
     when 'd'
-      rotate_right(0.25)
+      rotate_right(0.1)
     when 'D'
-      rotate_right(1)
+      rotate_right(0.25)
+    when 'G'
+      auto_mode = true
     else
       puts "unknown command '#{cmd}'"
     end
