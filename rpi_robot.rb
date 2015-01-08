@@ -3,19 +3,24 @@
 require 'io/console'
 require 'rpi_gpio'
 
+PWM_DUTY_CYCLE = 50
+PWM_FREQ = 50
+
 RPi::GPIO.set_numbering :bcm
 
 @left_go_pin = 17
-RPi::GPIO.setup @left_go_pin, as: :output
-RPi::GPIO.set_low @left_go_pin
+# RPi::GPIO.setup @left_go_pin, as: :output
+# RPi::GPIO.set_low @left_go_pin
+@left_pwm = RPi::GPIO::PWM.new(@left_go_pin, PWM_FREQ)
 
 @left_direction_pin = 4
 RPi::GPIO.setup @left_direction_pin, as: :output
 RPi::GPIO.set_low @left_direction_pin
 
 @right_go_pin = 10
-RPi::GPIO.setup @right_go_pin, as: :output
-RPi::GPIO.set_low @right_go_pin
+# RPi::GPIO.setup @right_go_pin, as: :output
+# RPi::GPIO.set_low @right_go_pin
+@right_pwm = RPi::GPIO::PWM.new(@right_go_pin, PWM_FREQ)
 
 @right_direction_pin = 25
 RPi::GPIO.setup @right_direction_pin, as: :output
@@ -69,19 +74,23 @@ def go
 end
 
 def start_left_motor
-  RPi::GPIO.set_high @left_go_pin
+  @left_pwm.start(PWM_DUTY_CYCLE)
+  # RPi::GPIO.set_high @left_go_pin
 end
 
 def stop_left_motor
-  RPi::GPIO.set_low @left_go_pin
+  @left_pwm.stop
+  # RPi::GPIO.set_low @left_go_pin
 end
 
 def start_right_motor
-  RPi::GPIO.set_high @right_go_pin
+  @right_pwm.start(PWM_DUTY_CYCLE)
+  # RPi::GPIO.set_high @right_go_pin
 end
 
 def stop_right_motor
-  RPi::GPIO.set_low @right_go_pin
+  @right_pwm.stop
+  # RPi::GPIO.set_low @right_go_pin
 end
 
 def set_rotate_left
