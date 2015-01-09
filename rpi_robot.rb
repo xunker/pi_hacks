@@ -31,7 +31,7 @@ RPi::GPIO.setup @trigger_pin, as: :output
 RPi::GPIO.set_low @trigger_pin
 
 @echo_pin = 15
-RPi::GPIO.setup @trigger_pin, as: :input
+RPi::GPIO.setup @echo_pin, as: :input
 
 @led1 = 7
 RPi::GPIO.setup @led1, as: :output
