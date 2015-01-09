@@ -5,6 +5,7 @@ require 'rpi_gpio'
 
 PWM_DUTY_CYCLE = 35
 PWM_FREQ = 50
+MIN_DISTANCE = 100.0
 
 RPi::GPIO.set_numbering :bcm
 
@@ -133,7 +134,7 @@ def reverse(duration=0.5)
   puts 'reverse'
   stop
   set_reverse
-  go
+  go(100)
 
   sleep(duration)
 
@@ -172,7 +173,7 @@ def measure
   watchdog2 = 0
   broken = false
   while RPi::GPIO.low? @echo_pin do
-    if (watchdog1 += 1) > 1000
+    if (watchdog1 += 1) > 50000
       broken = true
       break 
     end
@@ -181,7 +182,7 @@ def measure
   return 0.0 if broken
 
   while RPi::GPIO.high? @echo_pin do
-    if (watchdog2 += 1) > 1000
+    if (watchdog2 += 1) > 50000
       broken = true
       break 
     end
@@ -210,11 +211,36 @@ end
 
 auto_mode = false
 
+bogus_count = 0
 loop do
   if auto_mode
     distance = measure_average
     puts "Distance : #{sprintf("%.1f", distance)}"
-    if distance < 100.0
+    if distance < 0.0
+      stop
+      puts "\tbogus distance reading #{bogus_count}"
+      bogus_count += 1
+      case bogus_count
+      when 1..3
+        puts "\ttrying again in half-a-second"
+        sleep(0.5)
+      when 4..5
+        puts "\tbacking up a bit"
+        sleep(0.5)
+        reverse(0.2)
+        stop
+      when 4..5
+        puts "\tturning"
+        sleep(0.5)
+        rotate_right(0.1)
+        stop
+      else
+        puts "\tnot sure what to do. Foward, I guess."
+        sleep(0.5)
+        forward(0.1)
+        stop
+      end
+    elsif distance < MIN_DISTANCE
       puts "\tobstacle in path"
       puts "\treversing"
       stop
@@ -225,6 +251,7 @@ loop do
       rotate_left(0.1)
       next
     else
+      bogus_count = 0
       puts "\tmoving forward"
       forward_forever
     end
