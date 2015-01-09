@@ -255,6 +255,8 @@ loop do
       rotate_right(0.25)
     when 'G'
       auto_mode = true
+    when 'r'
+      puts "Range: #{measure_average}"
     else
       puts "unknown command '#{cmd}'"
     end
