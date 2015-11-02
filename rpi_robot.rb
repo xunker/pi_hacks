@@ -3,8 +3,7 @@
 require 'io/console'
 require 'rpi_gpio'
 
-#PWM_DUTY_CYCLE = 35
-PWM_DUTY_CYCLE = 50
+PWM_DUTY_CYCLE = 35
 PWM_FREQ = 50
 MIN_DISTANCE = 100.0
 
@@ -72,12 +71,12 @@ def stop
   stop_right_motor
 end
 
-def go(duty_cycle=PWM_DUTY_CYCLE)
+def go(duty_cycle=@default_speed)
   start_left_motor(duty_cycle)
   start_right_motor(duty_cycle)
 end
 
-def start_left_motor(duty_cycle=PWM_DUTY_CYCLE)
+def start_left_motor(duty_cycle=@default_speed)
   @left_pwm.start(duty_cycle)
   # RPi::GPIO.set_high @left_go_pin
 end
@@ -87,7 +86,7 @@ def stop_left_motor
   # RPi::GPIO.set_low @left_go_pin
 end
 
-def start_right_motor(duty_cycle=PWM_DUTY_CYCLE)
+def start_right_motor(duty_cycle=@default_speed)
   @right_pwm.start(duty_cycle)
   # RPi::GPIO.set_high @right_go_pin
 end
