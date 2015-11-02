@@ -3,11 +3,14 @@
 require 'io/console'
 require 'rpi_gpio'
 
-PWM_DUTY_CYCLE = 35
+#PWM_DUTY_CYCLE = 35
+PWM_DUTY_CYCLE = 50
 PWM_FREQ = 50
 MIN_DISTANCE = 100.0
 
 RPi::GPIO.set_numbering :bcm
+
+@default_speed = PWM_DUTY_CYCLE
 
 @left_go_pin = 17
 RPi::GPIO.setup @left_go_pin, as: :output
@@ -119,29 +122,29 @@ def forward_forever
   go
 end
 
-def forward(duration=0.5)
+def forward(duration: 0.5, speed: @default_speed)
   puts 'forward'
   stop
   set_forward
-  go
+  go(speed)
 
   sleep(duration)
 
   stop
 end
 
-def reverse(duration=0.5)
+def reverse(duration: 0.5, speed: @default_speed)
   puts 'reverse'
   stop
   set_reverse
-  go(100)
+  go(50)
 
   sleep(duration)
 
   stop
 end
 
-def rotate_left(duration=0.5)
+def rotate_left(duration: 0.5)
   puts 'rotate left'
   stop
   set_rotate_left
@@ -152,7 +155,7 @@ def rotate_left(duration=0.5)
   stop
 end
 
-def rotate_right(duration=0.5)
+def rotate_right(duration: 0.5)
   puts 'rotate right'
   stop
   set_rotate_right
@@ -168,14 +171,14 @@ def measure
   RPi::GPIO.set_high @trigger_pin
   sleep(0.00001)
   RPi::GPIO.set_low @trigger_pin
-  
+
   watchdog1 = 0
   watchdog2 = 0
   broken = false
   while RPi::GPIO.low? @echo_pin do
     if (watchdog1 += 1) > 50000
       broken = true
-      break 
+      break
     end
   end
   start = Time.now
@@ -184,7 +187,7 @@ def measure
   while RPi::GPIO.high? @echo_pin do
     if (watchdog2 += 1) > 50000
       broken = true
-      break 
+      break
     end
   end
   stop = Time.now
@@ -227,7 +230,7 @@ loop do
       when 4..5
         puts "\tbacking up a bit"
         sleep(0.5)
-        reverse(0.2)
+        reverse(duration: 0.2)
         stop
       when 4..5
         puts "\tturning"
@@ -245,10 +248,10 @@ loop do
       puts "\treversing"
       stop
       sleep(0.5)
-      reverse(0.2)
+      reverse(duration: 0.2)
       stop
       sleep(0.5)
-      rotate_left(0.1)
+      rotate_left(duration: 0.1)
       next
     else
       bogus_count = 0
@@ -265,25 +268,31 @@ loop do
     when 'x'
       break
     when 'w'
-      forward(0.5)
+      forward(duration: 0.5)
     when 'W'
-      forward(1)
+      forward(duration: 1)
     when 's'
-      reverse(0.5)
+      reverse(duration: 0.5)
     when 'S'
-      reverse(1)
+      reverse(duration: 1)
     when 'a'
-      rotate_left(0.1)
+      rotate_left(duration: 0.1)
     when 'A'
-      rotate_left(0.25)
+      rotate_left(duration: 0.25)
     when 'd'
-      rotate_right(0.1)
+      rotate_right(duration: 0.1)
     when 'D'
-      rotate_right(0.25)
+      rotate_right(duration: 0.25)
     when 'G'
       auto_mode = true
     when 'r'
       puts "Range: #{measure_average}"
+    when '-'
+      @default_speed -= 1 if @default_speed > 1
+      puts "Default speed lowered to #{@default_speed}."
+    when '+'
+      @default_speed += 1 if @default_speed < 100
+      puts "Default speed raised to #{@default_speed}."
     else
       puts "unknown command '#{cmd}'"
     end
