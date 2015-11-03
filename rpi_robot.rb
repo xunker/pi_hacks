@@ -3,13 +3,15 @@
 require 'io/console'
 require 'rpi_gpio'
 
-PWM_DUTY_CYCLE = 35
-PWM_FREQ = 50
-MIN_DISTANCE = 100.0
+PWM_DUTY_CYCLE = 50.0
+PWM_FREQ = 50.0
+MIN_DISTANCE = 50.0
 
 RPi::GPIO.set_numbering :bcm
 
 @default_speed = PWM_DUTY_CYCLE
+
+@duty_cycle_skew = 1 # to keep motors in sync, biased from right side. 1 means no skew.
 
 @left_go_pin = 17
 RPi::GPIO.setup @left_go_pin, as: :output
@@ -76,8 +78,13 @@ def go(duty_cycle=@default_speed)
   start_right_motor(duty_cycle)
 end
 
+def skewed_duty_cycle(dc, side: :right) # side is left or right
+  return dc if side == :left
+  dc = (dc * @duty_cycle_skew).round(2)
+end
+
 def start_left_motor(duty_cycle=@default_speed)
-  @left_pwm.start(duty_cycle)
+  @left_pwm.start(skewed_duty_cycle(duty_cycle, side: :left))
   # RPi::GPIO.set_high @left_go_pin
 end
 
@@ -87,7 +94,7 @@ def stop_left_motor
 end
 
 def start_right_motor(duty_cycle=@default_speed)
-  @right_pwm.start(duty_cycle)
+  @right_pwm.start(skewed_duty_cycle(duty_cycle, side: :right))
   # RPi::GPIO.set_high @right_go_pin
 end
 
@@ -287,11 +294,23 @@ loop do
     when 'r'
       puts "Range: #{measure_average}"
     when '-'
-      @default_speed -= 1 if @default_speed > 1
+      @default_speed -= 1.0 if @default_speed > 1.0
       puts "Default speed lowered to #{@default_speed}."
     when '+'
-      @default_speed += 1 if @default_speed < 100
+      @default_speed += 1.0 if @default_speed < 100.0
       puts "Default speed raised to #{@default_speed}."
+    when 'l'
+      if skewed_duty_cycle(@default_speed, side: :right) < 100.0
+        @duty_cycle_skew = (@duty_cycle_skew + 0.01).round(2)
+      end
+      puts "Increased motor skew: #{@duty_cycle_skew}."
+      puts "Left speed: #{skewed_duty_cycle(@default_speed, side: :left)}, Right speed: #{skewed_duty_cycle(@default_speed, side: :right)}"
+    when 'L'
+      if skewed_duty_cycle(@default_speed, side: :right) > 0.0
+        @duty_cycle_skew = (@duty_cycle_skew - 0.01).round(2)
+      end
+      puts "Decreased motor skew: #{@duty_cycle_skew}."
+      puts "Left speed: #{skewed_duty_cycle(@default_speed, side: :left)}, Right speed: #{skewed_duty_cycle(@default_speed, side: :right)}"
     else
       puts "unknown command '#{cmd}'"
     end
