@@ -2,6 +2,7 @@
 
 require 'io/console'
 require 'rpi_gpio'
+require 'hitimes'
 
 PWM_DUTY_CYCLE = 50.0
 PWM_FREQ = 50.0
@@ -187,21 +188,21 @@ def measure
       break
     end
   end
-  start = Time.now
+
   return 0.0 if broken
 
-  while RPi::GPIO.high? @echo_pin do
-    if (watchdog2 += 1) > 50000
-      broken = true
-      break
+  elapsed = Hitimes::Interval.measure do
+    while RPi::GPIO.high? @echo_pin do
+      if (watchdog2 += 1) > 50000
+        broken = true
+        break
+      end
     end
   end
-  stop = Time.now
+
   return 0.0 if broken
 
-  elapsed = stop - start
-
-  distance = (elapsed * 34300)/2
+  distance = (elapsed * 34300.0)/2
   return distance
 end
 
