@@ -82,26 +82,25 @@ end
 def skewed_duty_cycle(dc, side: :right) # side is left or right
   return dc if side == :left
   dc = (dc * @duty_cycle_skew).round(2)
+  return 1.0 if dc < 1.0
+  return 100.0 if dc > 100.0
+  return dc
 end
 
 def start_left_motor(duty_cycle=@default_speed)
   @left_pwm.start(skewed_duty_cycle(duty_cycle, side: :left))
-  # RPi::GPIO.set_high @left_go_pin
 end
 
 def stop_left_motor
   @left_pwm.stop
-  # RPi::GPIO.set_low @left_go_pin
 end
 
 def start_right_motor(duty_cycle=@default_speed)
   @right_pwm.start(skewed_duty_cycle(duty_cycle, side: :right))
-  # RPi::GPIO.set_high @right_go_pin
 end
 
 def stop_right_motor
   @right_pwm.stop
-  # RPi::GPIO.set_low @right_go_pin
 end
 
 def set_rotate_left
@@ -124,9 +123,9 @@ def set_reverse
   RPi::GPIO.set_low @right_direction_pin
 end
 
-def forward_forever
+def forward_forever(speed: @default_speed)
   set_forward
-  go
+  go(speed)
 end
 
 def forward(duration: 0.5, speed: @default_speed)
@@ -144,29 +143,29 @@ def reverse(duration: 0.5, speed: @default_speed)
   puts 'reverse'
   stop
   set_reverse
-  go(50)
+  go(speed)
 
   sleep(duration)
 
   stop
 end
 
-def rotate_left(duration: 0.5)
+def rotate_left(duration: 0.5, speed: @default_speed)
   puts 'rotate left'
   stop
   set_rotate_left
-  go(100)
+  go(speed)
 
   sleep(duration)
 
   stop
 end
 
-def rotate_right(duration: 0.5)
+def rotate_right(duration: 0.5, speed: @default_speed)
   puts 'rotate right'
   stop
   set_rotate_right
-  go(100)
+  go(speed)
 
   sleep(duration)
 
