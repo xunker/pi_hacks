@@ -16,21 +16,21 @@ RPi::GPIO.set_numbering :bcm
 
 @left_go_pin = 17
 RPi::GPIO.setup @left_go_pin, as: :output
-# RPi::GPIO.set_low @left_go_pin
 @left_pwm = RPi::GPIO::PWM.new(@left_go_pin, PWM_FREQ)
 
 @left_direction_pin = 4
 RPi::GPIO.setup @left_direction_pin, as: :output
 RPi::GPIO.set_low @left_direction_pin
+@left_state = 0
 
 @right_go_pin = 10
 RPi::GPIO.setup @right_go_pin, as: :output
-# RPi::GPIO.set_low @right_go_pin
 @right_pwm = RPi::GPIO::PWM.new(@right_go_pin, PWM_FREQ)
 
 @right_direction_pin = 25
 RPi::GPIO.setup @right_direction_pin, as: :output
 RPi::GPIO.set_low @right_direction_pin
+@right_state = 0
 
 @trigger_pin = 14
 RPi::GPIO.setup @trigger_pin, as: :output
@@ -103,24 +103,44 @@ def stop_right_motor
   @right_pwm.stop
 end
 
-def set_rotate_left
+def set_left_direction_pin_low
   RPi::GPIO.set_low @left_direction_pin
+  @left_state = 0
+end
+
+def set_left_direction_pin_high
+  RPi::GPIO.set_high @left_direction_pin
+  @left_state = 1
+end
+
+def set_right_direction_pin_low
   RPi::GPIO.set_low @right_direction_pin
+  @right_state = 0
+end
+
+def set_right_direction_pin_high
+  RPi::GPIO.set_high @right_direction_pin
+  @right_state = 1
+end
+
+def set_rotate_left
+  set_left_direction_pin_low
+  set_right_direction_pin_low
 end
 
 def set_rotate_right
-  RPi::GPIO.set_high @left_direction_pin
-  RPi::GPIO.set_high @right_direction_pin
+  set_left_direction_pin_high
+  set_right_direction_pin_high
 end
 
 def set_forward
-  RPi::GPIO.set_low @left_direction_pin
-  RPi::GPIO.set_high @right_direction_pin
+  set_left_direction_pin_low
+  set_right_direction_pin_high
 end
 
 def set_reverse
-  RPi::GPIO.set_high @left_direction_pin
-  RPi::GPIO.set_low @right_direction_pin
+  set_left_direction_pin_high
+  set_right_direction_pin_low
 end
 
 def forward_forever(speed: @default_speed)
@@ -221,100 +241,106 @@ end
 auto_mode = false
 
 bogus_count = 0
-loop do
-  if auto_mode
-    distance = measure_average
-    puts "Distance : #{sprintf("%.1f", distance)}"
-    if distance < 0.0
-      stop
-      puts "\tbogus distance reading #{bogus_count}"
-      bogus_count += 1
-      case bogus_count
-      when 1..3
-        puts "\ttrying again in half-a-second"
-        sleep(0.5)
-      when 4..5
-        puts "\tbacking up a bit"
+
+begin
+
+  loop do
+    if auto_mode
+      distance = measure_average
+      puts "Distance : #{sprintf("%.1f", distance)}"
+      if distance < 0.0
+        stop
+        puts "\tbogus distance reading #{bogus_count}"
+        bogus_count += 1
+        case bogus_count
+        when 1..3
+          puts "\ttrying again in half-a-second"
+          sleep(0.5)
+        when 4..5
+          puts "\tbacking up a bit"
+          sleep(0.5)
+          reverse(duration: 0.2)
+          stop
+        when 4..5
+          puts "\tturning"
+          sleep(0.5)
+          rotate_right(0.1)
+          stop
+        else
+          puts "\tnot sure what to do. Foward, I guess."
+          sleep(0.5)
+          forward(0.1)
+          stop
+        end
+      elsif distance < MIN_DISTANCE
+        puts "\tobstacle in path"
+        puts "\treversing"
+        stop
         sleep(0.5)
         reverse(duration: 0.2)
         stop
-      when 4..5
-        puts "\tturning"
         sleep(0.5)
-        rotate_right(0.1)
-        stop
+        rotate_left(duration: 0.1)
+        next
       else
-        puts "\tnot sure what to do. Foward, I guess."
-        sleep(0.5)
-        forward(0.1)
-        stop
+        bogus_count = 0
+        puts "\tmoving forward"
+        forward_forever
       end
-    elsif distance < MIN_DISTANCE
-      puts "\tobstacle in path"
-      puts "\treversing"
-      stop
-      sleep(0.5)
-      reverse(duration: 0.2)
-      stop
-      sleep(0.5)
-      rotate_left(duration: 0.1)
-      next
     else
-      bogus_count = 0
-      puts "\tmoving forward"
-      forward_forever
-    end
-  else
-    stop
-    print 'command> '
-    cmd = STDIN.getch.strip
-    case cmd
-    when '?', 'h'
-      show_help
-    when 'x'
-      break
-    when 'w'
-      forward(duration: 0.5)
-    when 'W'
-      forward(duration: 1)
-    when 's'
-      reverse(duration: 0.5)
-    when 'S'
-      reverse(duration: 1)
-    when 'a'
-      rotate_left(duration: 0.1)
-    when 'A'
-      rotate_left(duration: 0.25)
-    when 'd'
-      rotate_right(duration: 0.1)
-    when 'D'
-      rotate_right(duration: 0.25)
-    when 'G'
-      auto_mode = true
-    when 'r'
-      puts "Range: #{measure_average}"
-    when '-'
-      @default_speed -= 1.0 if @default_speed > 1.0
-      puts "Default speed lowered to #{@default_speed}."
-    when '+'
-      @default_speed += 1.0 if @default_speed < 100.0
-      puts "Default speed raised to #{@default_speed}."
-    when 'l'
-      if skewed_duty_cycle(@default_speed, side: :right) < 100.0
-        @duty_cycle_skew = (@duty_cycle_skew + 0.01).round(2)
+      stop
+      print 'command> '
+      cmd = STDIN.getch.strip
+      case cmd
+      when '?', 'h'
+        show_help
+      when 'x'
+        break
+      when 'w'
+        forward(duration: 0.5)
+      when 'W'
+        forward(duration: 1)
+      when 's'
+        reverse(duration: 0.5)
+      when 'S'
+        reverse(duration: 1)
+      when 'a'
+        rotate_left(duration: 0.1)
+      when 'A'
+        rotate_left(duration: 0.25)
+      when 'd'
+        rotate_right(duration: 0.1)
+      when 'D'
+        rotate_right(duration: 0.25)
+      when 'G'
+        auto_mode = true
+      when 'r'
+        puts "Range: #{measure_average}"
+      when '-'
+        @default_speed -= 1.0 if @default_speed > 1.0
+        puts "Default speed lowered to #{@default_speed}."
+      when '+'
+        @default_speed += 1.0 if @default_speed < 100.0
+        puts "Default speed raised to #{@default_speed}."
+      when 'l'
+        if skewed_duty_cycle(@default_speed, side: :right) < 100.0
+          @duty_cycle_skew = (@duty_cycle_skew + 0.01).round(2)
+        end
+        puts "Increased motor skew: #{@duty_cycle_skew}."
+        puts "Left speed: #{skewed_duty_cycle(@default_speed, side: :left)}, Right speed: #{skewed_duty_cycle(@default_speed, side: :right)}"
+      when 'L'
+        if skewed_duty_cycle(@default_speed, side: :right) > 0.0
+          @duty_cycle_skew = (@duty_cycle_skew - 0.01).round(2)
+        end
+        puts "Decreased motor skew: #{@duty_cycle_skew}."
+        puts "Left speed: #{skewed_duty_cycle(@default_speed, side: :left)}, Right speed: #{skewed_duty_cycle(@default_speed, side: :right)}"
+      else
+        puts "unknown command '#{cmd}'"
       end
-      puts "Increased motor skew: #{@duty_cycle_skew}."
-      puts "Left speed: #{skewed_duty_cycle(@default_speed, side: :left)}, Right speed: #{skewed_duty_cycle(@default_speed, side: :right)}"
-    when 'L'
-      if skewed_duty_cycle(@default_speed, side: :right) > 0.0
-        @duty_cycle_skew = (@duty_cycle_skew - 0.01).round(2)
-      end
-      puts "Decreased motor skew: #{@duty_cycle_skew}."
-      puts "Left speed: #{skewed_duty_cycle(@default_speed, side: :left)}, Right speed: #{skewed_duty_cycle(@default_speed, side: :right)}"
-    else
-      puts "unknown command '#{cmd}'"
     end
   end
+ensure
+  RPi::GPIO.reset
 end
 
 stop
