@@ -4,7 +4,7 @@ require 'io/console'
 require 'rpi_gpio'
 require 'hitimes'
 
-PWM_DUTY_CYCLE = 50.0
+PWM_DUTY_CYCLE = 40.0 # 0.0 to 100.0
 PWM_FREQ = 50.0
 MIN_DISTANCE = 50.0
 
@@ -12,7 +12,7 @@ RPi::GPIO.set_numbering :bcm
 
 @default_speed = PWM_DUTY_CYCLE
 
-@duty_cycle_skew = 1 # to keep motors in sync, biased from right side. 1 means no skew.
+@duty_cycle_skew = 1.07 # 1 # to keep motors in sync, biased from right side. 1 means no skew.
 
 @left_go_pin = 17
 RPi::GPIO.setup @left_go_pin, as: :output
@@ -238,7 +238,7 @@ def measure_average
   return distance
 end
 
-auto_mode = false
+auto_mode = RPi::GPIO.high?(@sw2)
 
 bogus_count = 0
 
@@ -246,6 +246,12 @@ begin
 
   loop do
     if auto_mode
+      if RPi::GPIO.low?(@sw2)
+        stop
+        auto_mode = false
+        next
+      end
+
       distance = measure_average
       puts "Distance : #{sprintf("%.1f", distance)}"
       if distance < 0.0
@@ -274,10 +280,7 @@ begin
         end
       elsif distance < MIN_DISTANCE
         puts "\tobstacle in path"
-        puts "\treversing"
-        stop
-        sleep(0.5)
-        reverse(duration: 0.2)
+        puts "\turning"
         stop
         sleep(0.5)
         rotate_left(duration: 0.1)
